@@ -21,6 +21,7 @@
 #include <DmxOutput.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include "pico/stdlib.h"
 #include "wifi_password.h"
 
 // Configuration
@@ -55,7 +56,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   // Parse comma-separated values
   char* token = strtok(message, ",");
-  int channelIndex = 1;  // DMX channels start at index 0 (channel 1)
+  int channelIndex = 1;  // DMX channels start at 1
 
   while (token != NULL && channelIndex < DMX_UNIVERSE_SIZE) {
     // Trim whitespace
@@ -67,21 +68,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       int value = atoi(token);
       if (value >= 0 && value <= 255) {
         dmxData[channelIndex] = (uint8_t)value;
-        //Serial.printf("Channel %d = %d\r\n", channelIndex, value);
       }
     }
-    // If blank, we skip updating this channel (preserves existing value)
-    //
 
     channelIndex++;
     token = strtok(NULL, ",");
   }
 
-  //Serial.println("---");
-
-  // Send updated DMX data
-  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
-  while (dmxOutput.busy());
 }
 
 // Connect to WiFi
@@ -130,15 +123,6 @@ void setup() {
   delay(2000);
   Serial.println("DMX MQTT Controller Starting...");
 
-  // Initialize DMX output
-  dmxOutput.begin(DMX_TX_PIN);
-
-  // Initialize DMX data buffer to zero
-  memset(dmxData, 0, DMX_UNIVERSE_SIZE);
-
-  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
-  while (dmxOutput.busy());
-
   // Connect to WiFi
   connectWiFi();
 
@@ -158,7 +142,21 @@ void loop() {
 
   // Process incoming MQTT messages
   mqttClient.loop();
+}
 
+void setup1() {
+  // Initialize DMX output
+  dmxOutput.begin(DMX_TX_PIN);
+
+  // Initialize DMX data buffer to zero
+  memset(dmxData, 0, DMX_UNIVERSE_SIZE);
+
+  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
+  while (dmxOutput.busy());
+
+}
+
+void loop1() {
   // Send DMX universe every loop
   dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
   while (dmxOutput.busy());
@@ -166,3 +164,4 @@ void loop() {
   // Small delay to prevent overwhelming the system
   delay(10);
 }
+
