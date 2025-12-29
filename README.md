@@ -9,6 +9,19 @@ This is an Arduino project for the Raspberry Pi Pico W board.
 - **WiFi**: 2.4GHz wireless (802.11n)
 - **Built-in LED**: GPIO 25
 
+## Libraries
+
+This project includes the following Arduino libraries:
+
+### Pico-DMX
+- **Repository**: https://github.com/jostlowe/Pico-DMX
+- **Purpose**: DMX512-A lighting control protocol support
+- **Features**:
+  - Send and receive DMX signals
+  - Support for up to 8 parallel universes using PIO
+  - Hardware-accelerated DMA transfers
+  - Professional lighting control
+
 ## Setup
 
 ### Arduino CLI (Recommended)
@@ -42,6 +55,7 @@ Using the provided Makefile with Arduino CLI:
 
 **Other useful commands**:
 - `make help` - Show all available commands
+- `make install-libs` - Install required libraries only
 - `make boards` - List connected boards
 - `make clean` - Clean build files
 
@@ -73,13 +87,37 @@ Using the provided Makefile with Arduino CLI:
 
 ## Current Project
 
-The current sketch is a simple LED blink program that:
-- Initializes serial communication at 115200 baud
-- Blinks the built-in LED every second
-- Prints LED status to the serial monitor
+### test.ino - DMX512 Output Example
+
+This sketch demonstrates basic DMX output using the Pico-DMX library:
+- DMX universe transmission on GPIO 0
+- Channel brightness control with smooth fade effect
+- RGB color control example (commented out, ready to use)
+- Serial status monitoring at 115200 baud
+
+**Hardware Requirements**:
+- RS485 transceiver module (e.g., MAX485, SN75176)
+- DMX lighting fixtures
+- Proper DMX cabling (3-pin or 5-pin XLR)
+
+**Wiring**:
+```
+Pico GPIO 0  →  RS485 DI (Data Input)
+Pico GND     →  RS485 GND
+RS485 A      →  DMX Pin 3 (DMX+)
+RS485 B      →  DMX Pin 2 (DMX-)
+GND          →  DMX Pin 1 (GND)
+```
+
+**Usage**:
+1. Connect your DMX hardware as shown above
+2. Upload the sketch: `make upload`
+3. Monitor serial output: `make monitor`
+4. Watch channel 1 fade up and down on your DMX fixture
 
 ## Next Steps
 
-- Add WiFi connectivity using the WiFi library
-- Implement your custom functionality
-- Add additional sensors or components as needed
+- Configure DMX hardware and test lighting control
+- Add WiFi connectivity for wireless DMX protocols (Art-Net, sACN)
+- Implement DMX input for fixture monitoring
+- Create custom lighting effects and sequences
