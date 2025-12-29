@@ -103,8 +103,6 @@ void loop1() {
   memcpy(dmxData, localDmxData, DMX_UNIVERSE_SIZE);
   mutex_exit(&dmxMutex);
 
-  Serial.printf("Channel 1 is %d\r\n", localDmxData[1]);
-
   // Send DMX universe (using local copy)
   dmxOutput.write(localDmxData, DMX_UNIVERSE_SIZE);
   while (dmxOutput.busy());
