@@ -126,7 +126,7 @@ void connectMQTT() {
 void setup() {
   // Initialize serial communication
   Serial.begin(115200);
-  delay(1000);
+  delay(5000);
   Serial.println("DMX MQTT Controller Starting...");
 
   // Initialize DMX output
@@ -157,6 +157,10 @@ void loop() {
 
   // Process incoming MQTT messages
   mqttClient.loop();
+
+  // Send DMX universe every loop
+  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
+  while (dmxOutput.busy());
 
   // Small delay to prevent overwhelming the system
   delay(10);
