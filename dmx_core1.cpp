@@ -1,15 +1,12 @@
 /*
- * Core 1 Functions - DMX Output Handler
- *
- * This file contains the setup1() and loop1() functions that run on Core 1
- * of the Raspberry Pi Pico W. Core 1 handles DMX output with fade interpolation.
+ * DMX Output Handler, to run on the second core
  */
 
 #include <DmxOutput.h>
 #include "pico/stdlib.h"
 #include "pico/mutex.h"
 
-// External references to global variables defined in test.ino
+// External references to global variables defined in dmx_mqtt_pico.ino
 extern DmxOutput dmxOutput;
 extern uint8_t dmxData[DMX_UNIVERSE_SIZE];
 extern uint8_t initialDmxData[DMX_UNIVERSE_SIZE];
@@ -35,8 +32,7 @@ void setup1() {
 
 }
 
-// Set new DMX target values and initiate fade
-// This function should be called when new DMX data arrives via MQTT
+// Set new DMX target values and log the fade start time
 void setDmxTarget(const uint8_t* newTargetData) {
   // Lock mutex before modifying fade parameters
   mutex_enter_blocking(&dmxMutex);

@@ -1,7 +1,7 @@
 # Makefile for Raspberry Pi Pico W Arduino Project
 
 # Configuration
-SKETCH = test.ino
+SKETCH = dmx_mqtt_pico.ino
 BOARD_URL = https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
 FQBN = rp2040:rp2040:rpipicow
 BAUD_RATE = 115200

@@ -1,8 +1,5 @@
 /*
- * Raspberry Pi Pico W - DMX512 MQTT Controller
- *
- * This example receives DMX channel data via MQTT and outputs to DMX fixtures.
- * It connects to WiFi and subscribes to an MQTT topic for real-time control.
+ * Receives DMX channel data via MQTT and outputs to a DMX bus.
  *
  * Hardware Requirements:
  * - Raspberry Pi Pico W
@@ -21,7 +18,6 @@
 #include <DmxOutput.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include "pico/stdlib.h"
 #include "pico/mutex.h"
 #include "wifi_password.h"
 
