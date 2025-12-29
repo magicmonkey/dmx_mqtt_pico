@@ -1,8 +1,8 @@
 /*
- * Raspberry Pi Pico W - DMX512 Output Example
+ * Raspberry Pi Pico W - DMX512 MQTT Controller
  *
- * This example demonstrates basic DMX output using the Pico-DMX library.
- * It sends DMX data to control lighting fixtures.
+ * This example receives DMX channel data via MQTT and outputs to DMX fixtures.
+ * It connects to WiFi and subscribes to an MQTT topic for real-time control.
  *
  * Hardware Requirements:
  * - Raspberry Pi Pico W
@@ -19,10 +19,21 @@
  */
 
 #include <DmxOutput.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
 
 // Configuration
 const uint DMX_TX_PIN = 0;        // GPIO pin for DMX transmission
 // Note: DMX_UNIVERSE_SIZE is defined in DmxOutput.h (512 channels)
+
+// WiFi Configuration
+const char* ssid = "cyan_nomap";
+const char* password = "";        // Add password if needed
+
+// MQTT Configuration
+const char* mqtt_server = "10.1.0.1";
+const int mqtt_port = 1883;
+const char* mqtt_topic = "/ledbar/0";
 
 // Create DMX output instance
 DmxOutput dmxOutput;
@@ -30,7 +41,94 @@ DmxOutput dmxOutput;
 // DMX data buffer (one full universe)
 uint8_t dmxData[DMX_UNIVERSE_SIZE];
 
+// WiFi and MQTT clients
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+// MQTT callback function to handle incoming messages
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  // Create a null-terminated string from the payload
+  char message[length + 1];
+  memcpy(message, payload, length);
+  message[length] = '\0';
+
+  // Parse comma-separated values
+  char* token = strtok(message, ",");
+  int channelIndex = 1;  // DMX channels start at index 0 (channel 1)
+
+  while (token != NULL && channelIndex < DMX_UNIVERSE_SIZE) {
+    // Trim whitespace
+    while (*token == ' ') token++;
+
+    // Check if the token is not blank/empty
+    if (*token != '\0') {
+      // Parse the value and update the DMX channel
+      int value = atoi(token);
+      if (value >= 0 && value <= 255) {
+        dmxData[channelIndex] = (uint8_t)value;
+        Serial.printf("Channel %d = %d\r\n", channelIndex, value);
+      }
+    }
+    // If blank, we skip updating this channel (preserves existing value)
+    //
+
+    channelIndex++;
+    token = strtok(NULL, ",");
+  }
+
+  Serial.println("---");
+
+  // Send updated DMX data
+  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
+  while (dmxOutput.busy());
+}
+
+// Connect to WiFi
+void connectWiFi() {
+  Serial.print("Connecting to WiFi");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.print("Connected! IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+// Connect to MQTT broker
+void connectMQTT() {
+  while (!mqttClient.connected()) {
+    Serial.print("Connecting to MQTT broker...");
+
+    // Generate a unique client ID
+    String clientId = "PicoW-DMX-";
+    clientId += String(random(0xffff), HEX);
+
+    if (mqttClient.connect(clientId.c_str())) {
+      Serial.println("connected");
+
+      // Subscribe to the topic
+      mqttClient.subscribe(mqtt_topic);
+      Serial.print("Subscribed to topic: ");
+      Serial.println(mqtt_topic);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" retrying in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+
 void setup() {
+  // Initialize serial communication
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("DMX MQTT Controller Starting...");
+
   // Initialize DMX output
   dmxOutput.begin(DMX_TX_PIN);
 
@@ -39,53 +137,27 @@ void setup() {
 
   dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
   while (dmxOutput.busy());
+
+  // Connect to WiFi
+  connectWiFi();
+
+  // Setup MQTT client
+  mqttClient.setServer(mqtt_server, mqtt_port);
+  mqttClient.setCallback(mqttCallback);
+
+  // Connect to MQTT broker
+  connectMQTT();
 }
 
 void loop() {
+  // Maintain MQTT connection
+  if (!mqttClient.connected()) {
+    connectMQTT();
+  }
 
-  /*
-  dmxData[1] = 100;
-  dmxData[2] = 20;
-  dmxData[3] = 200;
+  // Process incoming MQTT messages
+  mqttClient.loop();
 
-  dmxData[5] = 100;
-  dmxData[6] = 20;
-  dmxData[7] = 200;
-
-  dmxData[9] = 100;
-  dmxData[10] = 20;
-  dmxData[11] = 200;
-
-  dmxData[13] = 100;
-  dmxData[14] = 20;
-  dmxData[15] = 200;
-
-  dmxData[17] = 100;
-  dmxData[18] = 20;
-  dmxData[19] = 200;
-
-  dmxData[21] = 100;
-  dmxData[22] = 20;
-  dmxData[23] = 200;
-  */
-
-  /*
-  dmxData[25] = 20;
-  dmxData[26] = 20;
-  dmxData[27] = 20;
-  dmxData[28] = 20;
-  dmxData[29] = 20;
-  dmxData[30] = 20;
-  dmxData[31] = 20;
-  dmxData[32] = 20;
-  dmxData[33] = 20;
-  dmxData[34] = 20;
-  dmxData[35] = 20;
-  dmxData[36] = 20;
-  dmxData[37] = 20;
-  */
-
-  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
-  while (dmxOutput.busy());
+  // Small delay to prevent overwhelming the system
   delay(10);
 }

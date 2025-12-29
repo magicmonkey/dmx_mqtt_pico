@@ -5,7 +5,7 @@ SKETCH = test.ino
 BOARD_URL = https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
 FQBN = rp2040:rp2040:rpipicow
 BAUD_RATE = 115200
-LIBRARIES = Pico-DMX
+LIBRARIES = Pico-DMX PubSubClient
 
 # Auto-detect port (macOS)
 PORT = $(shell ls /dev/cu.usbmodem* 2>/dev/null | head -n 1)
