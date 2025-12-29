@@ -31,57 +31,61 @@ DmxOutput dmxOutput;
 uint8_t dmxData[DMX_UNIVERSE_SIZE];
 
 void setup() {
-  // Initialize serial communication
-  Serial.begin(115200);
-  delay(2000);
-  Serial.println("Pico W DMX Output Example");
-  Serial.println("========================");
-
   // Initialize DMX output
   dmxOutput.begin(DMX_TX_PIN);
-  Serial.print("DMX output initialized on GPIO ");
-  Serial.println(DMX_TX_PIN);
 
   // Initialize DMX data buffer to zero
   memset(dmxData, 0, DMX_UNIVERSE_SIZE);
 
-  Serial.println("Starting DMX transmission...");
-  Serial.println("Ready!");
+  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
+  while (dmxOutput.busy());
 }
 
 void loop() {
-  // Example 1: Fade a single channel (channel 1) up and down
-  static uint8_t brightness = 0;
-  static int8_t direction = 1;
 
-  brightness += direction;
+  /*
+  dmxData[1] = 100;
+  dmxData[2] = 20;
+  dmxData[3] = 200;
 
-  if (brightness == 255) {
-    direction = -1;
-  } else if (brightness == 0) {
-    direction = 1;
-  }
+  dmxData[5] = 100;
+  dmxData[6] = 20;
+  dmxData[7] = 200;
 
-  // Set channel 1 to the current brightness
-  dmxData[0] = brightness;
+  dmxData[9] = 100;
+  dmxData[10] = 20;
+  dmxData[11] = 200;
 
-  // Example 2: Set RGB channels (channels 2-4) to a color
-  // Uncomment to use:
-  // dmxData[1] = 255;  // Red
-  // dmxData[2] = 0;    // Green
-  // dmxData[3] = 128;  // Blue
+  dmxData[13] = 100;
+  dmxData[14] = 20;
+  dmxData[15] = 200;
 
-  // Send DMX data
+  dmxData[17] = 100;
+  dmxData[18] = 20;
+  dmxData[19] = 200;
+
+  dmxData[21] = 100;
+  dmxData[22] = 20;
+  dmxData[23] = 200;
+  */
+
+  /*
+  dmxData[25] = 20;
+  dmxData[26] = 20;
+  dmxData[27] = 20;
+  dmxData[28] = 20;
+  dmxData[29] = 20;
+  dmxData[30] = 20;
+  dmxData[31] = 20;
+  dmxData[32] = 20;
+  dmxData[33] = 20;
+  dmxData[34] = 20;
+  dmxData[35] = 20;
+  dmxData[36] = 20;
+  dmxData[37] = 20;
+  */
+
   dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
-
-  // Print status every 25 cycles (~1 second at 40ms delay)
-  static uint8_t counter = 0;
-  if (counter++ >= 25) {
-    Serial.print("Channel 1: ");
-    Serial.print(brightness);
-    Serial.println(" (0-255)");
-    counter = 0;
-  }
-
-  delay(40); // ~25 Hz update rate
+  while (dmxOutput.busy());
+  delay(10);
 }
