@@ -26,7 +26,6 @@
 #include "wifi_password.h"
 
 // Configuration
-const uint DMX_TX_PIN = 0;        // GPIO pin for DMX transmission
 // Note: DMX_UNIVERSE_SIZE is defined in DmxOutput.h (512 channels)
 
 // WiFi Configuration
@@ -36,13 +35,21 @@ const char* password = WIFI_PASSWORD; // from wifi_password.h
 // MQTT Configuration
 const char* mqtt_server = "10.1.0.1";
 const int mqtt_port = 1883;
-const char* mqtt_topic = "/ledbar/0";
+const char* mqtt_topic_dmx = "/ledbar/0";
+const char* mqtt_topic_fadetime = "/ledbar/0/fadetime";
 
 // Create DMX output instance
 DmxOutput dmxOutput;
 
 // DMX data buffer (one full universe)
 uint8_t dmxData[DMX_UNIVERSE_SIZE];
+
+// Fade variables
+uint8_t initialDmxData[DMX_UNIVERSE_SIZE];
+uint8_t targetDmxData[DMX_UNIVERSE_SIZE];
+uint32_t fadeTime = 0;          // Fade duration in milliseconds
+uint32_t fadeStartTime = 0;     // Time when fade started
+uint32_t fadeTargetTime = 0;    // Time when fade should complete
 
 // Mutex for protecting dmxData access between cores
 mutex_t dmxMutex;
@@ -51,6 +58,9 @@ mutex_t dmxMutex;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
+// Function declaration from dmx_core1.cpp
+void setDmxTarget(const uint8_t* newTargetData);
+
 // MQTT callback function to handle incoming messages
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // Create a null-terminated string from the payload
@@ -58,33 +68,52 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   memcpy(message, payload, length);
   message[length] = '\0';
 
-  // Parse comma-separated values
-  char* token = strtok(message, ",");
-  int channelIndex = 1;  // DMX channels start at 1
+  // Check which topic this message is for
+  if (strcmp(topic, mqtt_topic_fadetime) == 0) {
+    // Handle fade time update
+    int newFadeTime = atoi(message);
+    if (newFadeTime >= 0) {
+      mutex_enter_blocking(&dmxMutex);
+      fadeTime = (uint32_t)newFadeTime;
+      mutex_exit(&dmxMutex);
+      Serial.print("Fade time set to: ");
+      Serial.print(fadeTime);
+      Serial.println(" ms");
+    }
+  } else if (strcmp(topic, mqtt_topic_dmx) == 0) {
+    // Handle DMX data update with fade
+    // Create temporary buffer for new target values
+    uint8_t newTarget[DMX_UNIVERSE_SIZE];
 
-  // Lock mutex before modifying dmxData
-  mutex_enter_blocking(&dmxMutex);
+    // Initialize with current DMX values (in case message doesn't include all channels)
+    mutex_enter_blocking(&dmxMutex);
+    memcpy(newTarget, dmxData, DMX_UNIVERSE_SIZE);
+    mutex_exit(&dmxMutex);
 
-  while (token != NULL && channelIndex < DMX_UNIVERSE_SIZE) {
-    // Trim whitespace
-    while (*token == ' ') token++;
+    // Parse comma-separated values into temporary buffer
+    char* token = strtok(message, ",");
+    int channelIndex = 1;  // DMX channels start at 1
 
-    // Check if the token is not blank/empty
-    if (*token != '\0') {
-      // Parse the value and update the DMX channel
-      int value = atoi(token);
-      if (value >= 0 && value <= 255) {
-        dmxData[channelIndex] = (uint8_t)value;
+    while (token != NULL && channelIndex < DMX_UNIVERSE_SIZE) {
+      // Trim whitespace
+      while (*token == ' ') token++;
+
+      // Check if the token is not blank/empty
+      if (*token != '\0') {
+        // Parse the value and update the temporary target buffer
+        int value = atoi(token);
+        if (value >= 0 && value <= 255) {
+          newTarget[channelIndex] = (uint8_t)value;
+        }
       }
+
+      channelIndex++;
+      token = strtok(NULL, ",");
     }
 
-    channelIndex++;
-    token = strtok(NULL, ",");
+    // Set new target and initiate fade
+    setDmxTarget(newTarget);
   }
-
-  // Unlock mutex after modification
-  mutex_exit(&dmxMutex);
-
 }
 
 // Connect to WiFi
@@ -114,10 +143,14 @@ void connectMQTT() {
     if (mqttClient.connect(clientId.c_str())) {
       Serial.println("connected");
 
-      // Subscribe to the topic
-      mqttClient.subscribe(mqtt_topic);
+      // Subscribe to both topics
+      mqttClient.subscribe(mqtt_topic_dmx);
       Serial.print("Subscribed to topic: ");
-      Serial.println(mqtt_topic);
+      Serial.println(mqtt_topic_dmx);
+
+      mqttClient.subscribe(mqtt_topic_fadetime);
+      Serial.print("Subscribed to topic: ");
+      Serial.println(mqtt_topic_fadetime);
     } else {
       Serial.print("failed, rc=");
       Serial.print(mqttClient.state());
@@ -155,38 +188,5 @@ void loop() {
 
   // Process incoming MQTT messages
   mqttClient.loop();
-}
-
-void setup1() {
-  // Initialize DMX output
-  dmxOutput.begin(DMX_TX_PIN);
-
-  // Initialize DMX data buffer to zero
-  memset(dmxData, 0, DMX_UNIVERSE_SIZE);
-
-  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
-  while (dmxOutput.busy());
-
-}
-
-void loop1() {
-  // Local buffer for DMX data
-  uint8_t localDmxData[DMX_UNIVERSE_SIZE];
-
-  // Lock mutex before reading dmxData
-  mutex_enter_blocking(&dmxMutex);
-
-  // Copy data to local buffer
-  memcpy(localDmxData, dmxData, DMX_UNIVERSE_SIZE);
-
-  // Unlock mutex after copying
-  mutex_exit(&dmxMutex);
-
-  // Send DMX universe every loop (using local copy)
-  dmxOutput.write(localDmxData, DMX_UNIVERSE_SIZE);
-  while (dmxOutput.busy());
-
-  // Small delay to prevent overwhelming the system
-  delay(10);
 }
 
