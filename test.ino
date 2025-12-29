@@ -21,6 +21,7 @@
 #include <DmxOutput.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include "wifi_password.h"
 
 // Configuration
 const uint DMX_TX_PIN = 0;        // GPIO pin for DMX transmission
@@ -28,7 +29,7 @@ const uint DMX_TX_PIN = 0;        // GPIO pin for DMX transmission
 
 // WiFi Configuration
 const char* ssid = "cyan_nomap";
-const char* password = "";        // Add password if needed
+const char* password = WIFI_PASSWORD; // from wifi_password.h
 
 // MQTT Configuration
 const char* mqtt_server = "10.1.0.1";
@@ -66,7 +67,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       int value = atoi(token);
       if (value >= 0 && value <= 255) {
         dmxData[channelIndex] = (uint8_t)value;
-        Serial.printf("Channel %d = %d\r\n", channelIndex, value);
+        //Serial.printf("Channel %d = %d\r\n", channelIndex, value);
       }
     }
     // If blank, we skip updating this channel (preserves existing value)
@@ -76,7 +77,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     token = strtok(NULL, ",");
   }
 
-  Serial.println("---");
+  //Serial.println("---");
 
   // Send updated DMX data
   dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
@@ -126,7 +127,7 @@ void connectMQTT() {
 void setup() {
   // Initialize serial communication
   Serial.begin(115200);
-  delay(5000);
+  delay(2000);
   Serial.println("DMX MQTT Controller Starting...");
 
   // Initialize DMX output
