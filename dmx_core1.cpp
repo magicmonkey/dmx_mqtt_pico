@@ -14,6 +14,7 @@ extern DmxOutput dmxOutput;
 extern uint8_t dmxData[DMX_UNIVERSE_SIZE];
 extern uint8_t initialDmxData[DMX_UNIVERSE_SIZE];
 extern uint8_t targetDmxData[DMX_UNIVERSE_SIZE];
+extern uint32_t fadeTime;
 extern uint32_t fadeStartTime;
 extern uint32_t fadeTargetTime;
 extern mutex_t dmxMutex;
@@ -32,6 +33,26 @@ void setup1() {
   dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
   while (dmxOutput.busy());
 
+}
+
+// Set new DMX target values and initiate fade
+// This function should be called when new DMX data arrives via MQTT
+void setDmxTarget(const uint8_t* newTargetData) {
+  // Lock mutex before modifying fade parameters
+  mutex_enter_blocking(&dmxMutex);
+
+  // Copy current dmxData to initial (starting point for fade)
+  memcpy(initialDmxData, dmxData, DMX_UNIVERSE_SIZE);
+
+  // Copy new values to target (end point for fade)
+  memcpy(targetDmxData, newTargetData, DMX_UNIVERSE_SIZE);
+
+  // Set fade timing
+  fadeStartTime = millis();
+  fadeTargetTime = fadeStartTime + fadeTime;
+
+  // Unlock mutex after modification
+  mutex_exit(&dmxMutex);
 }
 
 void loop1() {
@@ -81,6 +102,8 @@ void loop1() {
   mutex_enter_blocking(&dmxMutex);
   memcpy(dmxData, localDmxData, DMX_UNIVERSE_SIZE);
   mutex_exit(&dmxMutex);
+
+  Serial.printf("Channel 1 is %d\r\n", localDmxData[1]);
 
   // Send DMX universe (using local copy)
   dmxOutput.write(localDmxData, DMX_UNIVERSE_SIZE);

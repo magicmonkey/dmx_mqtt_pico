@@ -58,6 +58,9 @@ mutex_t dmxMutex;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
+// Function declaration from dmx_core1.cpp
+void setDmxTarget(const uint8_t* newTargetData);
+
 // MQTT callback function to handle incoming messages
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // Create a null-terminated string from the payload
@@ -79,27 +82,28 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
   } else if (strcmp(topic, mqtt_topic_dmx) == 0) {
     // Handle DMX data update with fade
-    // Parse comma-separated values
+    // Create temporary buffer for new target values
+    uint8_t newTarget[DMX_UNIVERSE_SIZE];
+
+    // Initialize with current DMX values (in case message doesn't include all channels)
+    mutex_enter_blocking(&dmxMutex);
+    memcpy(newTarget, dmxData, DMX_UNIVERSE_SIZE);
+    mutex_exit(&dmxMutex);
+
+    // Parse comma-separated values into temporary buffer
     char* token = strtok(message, ",");
     int channelIndex = 1;  // DMX channels start at 1
 
-    // Lock mutex before modifying fade parameters
-    mutex_enter_blocking(&dmxMutex);
-
-    // Copy current dmxData to initial (starting point for fade)
-    memcpy(initialDmxData, dmxData, DMX_UNIVERSE_SIZE);
-
-    // Parse new values into target (end point for fade)
     while (token != NULL && channelIndex < DMX_UNIVERSE_SIZE) {
       // Trim whitespace
       while (*token == ' ') token++;
 
       // Check if the token is not blank/empty
       if (*token != '\0') {
-        // Parse the value and update the target DMX channel
+        // Parse the value and update the temporary target buffer
         int value = atoi(token);
         if (value >= 0 && value <= 255) {
-          targetDmxData[channelIndex] = (uint8_t)value;
+          newTarget[channelIndex] = (uint8_t)value;
         }
       }
 
@@ -107,12 +111,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       token = strtok(NULL, ",");
     }
 
-    // Set fade timing
-    fadeStartTime = millis();
-    fadeTargetTime = fadeStartTime + fadeTime;
-
-    // Unlock mutex after modification
-    mutex_exit(&dmxMutex);
+    // Set new target and initiate fade
+    setDmxTarget(newTarget);
   }
 }
 
@@ -189,6 +189,4 @@ void loop() {
   // Process incoming MQTT messages
   mqttClient.loop();
 }
-
-// setup1() and loop1() are now in dmx_core1.cpp
 
