@@ -22,6 +22,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include "pico/stdlib.h"
+#include "pico/mutex.h"
 #include "wifi_password.h"
 
 // Configuration
@@ -43,6 +44,9 @@ DmxOutput dmxOutput;
 // DMX data buffer (one full universe)
 uint8_t dmxData[DMX_UNIVERSE_SIZE];
 
+// Mutex for protecting dmxData access between cores
+mutex_t dmxMutex;
+
 // WiFi and MQTT clients
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
@@ -57,6 +61,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // Parse comma-separated values
   char* token = strtok(message, ",");
   int channelIndex = 1;  // DMX channels start at 1
+
+  // Lock mutex before modifying dmxData
+  mutex_enter_blocking(&dmxMutex);
 
   while (token != NULL && channelIndex < DMX_UNIVERSE_SIZE) {
     // Trim whitespace
@@ -74,6 +81,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     channelIndex++;
     token = strtok(NULL, ",");
   }
+
+  // Unlock mutex after modification
+  mutex_exit(&dmxMutex);
 
 }
 
@@ -123,6 +133,9 @@ void setup() {
   delay(2000);
   Serial.println("DMX MQTT Controller Starting...");
 
+  // Initialize mutex for dmxData protection
+  mutex_init(&dmxMutex);
+
   // Connect to WiFi
   connectWiFi();
 
@@ -157,8 +170,20 @@ void setup1() {
 }
 
 void loop1() {
-  // Send DMX universe every loop
-  dmxOutput.write(dmxData, DMX_UNIVERSE_SIZE);
+  // Local buffer for DMX data
+  uint8_t localDmxData[DMX_UNIVERSE_SIZE];
+
+  // Lock mutex before reading dmxData
+  mutex_enter_blocking(&dmxMutex);
+
+  // Copy data to local buffer
+  memcpy(localDmxData, dmxData, DMX_UNIVERSE_SIZE);
+
+  // Unlock mutex after copying
+  mutex_exit(&dmxMutex);
+
+  // Send DMX universe every loop (using local copy)
+  dmxOutput.write(localDmxData, DMX_UNIVERSE_SIZE);
   while (dmxOutput.busy());
 
   // Small delay to prevent overwhelming the system
